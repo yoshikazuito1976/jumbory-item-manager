@@ -32,4 +32,6 @@ Open http://localhost:3000 to see the Next.js starter screen.
 
 設計書や API 仕様書は docs/ に追加してください。
 
-- コード説明書: [docs/overview.md](docs/overview.md)
+- [コード説明書](docs/overview.md): 全体構成と技術スタック
+- [データの流れ](docs/data_flow.md): フロントエンドからバックエンド、DBまでのデータフロー（Mermaid シーケンス図）
+- [実装ログ](docs/implementation_log.md): 備品管理機能の実装内容と動作確認結果（2026/2/14）

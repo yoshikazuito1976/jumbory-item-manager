@@ -12,6 +12,11 @@ venv/
 ENV/
 poetry.lock
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
 # IDE
 .vscode/
 .idea/
