@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Item, ItemCreate } from "@/types/item";
+import Link from "next/link";
+import { Item, ItemCreate, Group } from "@/types/item";
 import {
   Table,
   TableBody,
@@ -20,34 +21,62 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const API_BASE_URL = "http://localhost:8001";
+const API_BASE_URL = "http://127.0.0.1:8001";
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [formData, setFormData] = useState<ItemCreate>({
     name: "",
     category: "",
     status: "保管中",
     location: "",
+    owner_group_id: 0,
     note: "",
   });
 
-  // 初回ロード時に備品一覧を取得
+  // 初回ロード時に備品一覧と団一覧を取得
   useEffect(() => {
     fetchItems();
-  }, []);
+    fetchGroups();
+  }, [searchQuery, statusFilter]);
 
   const fetchItems = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items`);
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("search", searchQuery);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+
+      const url = `${API_BASE_URL}/api/items${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url);
       const data = await response.json();
       setItems(data);
     } catch (error) {
       console.error("Failed to fetch items:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/groups`);
+      const data = await response.json();
+      setGroups(data);
+    } catch (error) {
+      console.error("Failed to fetch groups:", error);
     }
   };
 
@@ -69,6 +98,7 @@ export default function Home() {
           category: "",
           status: "保管中",
           location: "",
+          owner_group_id: 0,
           note: "",
         });
         // 一覧を再取得
@@ -95,6 +125,14 @@ export default function Home() {
     }
   };
 
+  // 統計情報を計算
+  const stats = {
+    total: items.length,
+    available: items.filter((item) => item.status === "保管中").length,
+    borrowed: items.filter((item) => item.status === "貸出中").length,
+    maintenance: items.filter((item) => item.status === "要メンテ").length,
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -105,7 +143,101 @@ export default function Home() {
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-4xl font-bold mb-8">Jumbory 備品管理</h1>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-4xl font-bold">Jumbory 備品管理</h1>
+          <div className="flex gap-2">
+            <Link href="/leaders">
+              <Button variant="outline">指導者管理</Button>
+            </Link>
+            <Link href="/scouts">
+              <Button variant="outline">スカウト管理</Button>
+            </Link>
+          </div>
+        </div>
+        <p className="text-muted-foreground">
+          備品の登録・管理・検索を一元管理できるダッシュボード
+        </p>
+      </div>
+
+      {/* 統計情報ダッシュボード */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              総備品数
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              保管中
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">
+              {stats.available}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              貸出中
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-600">
+              {stats.borrowed}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              要メンテ
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">
+              {stats.maintenance}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 検索・フィルタ */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>検索・フィルタ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="備品名またはカテゴリで検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="ステータス" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                <SelectItem value="保管中">保管中</SelectItem>
+                <SelectItem value="貸出中">貸出中</SelectItem>
+                <SelectItem value="要メンテ">要メンテ</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 新規登録フォーム */}
       <Card className="mb-8">
@@ -165,6 +297,26 @@ export default function Home() {
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="owner_group_id">所有団</Label>
+                <Select
+                  value={formData.owner_group_id.toString()}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, owner_group_id: parseInt(value) })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="団を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id.toString()}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label htmlFor="note">備考</Label>
@@ -185,7 +337,11 @@ export default function Home() {
       <Card>
         <CardHeader>
           <CardTitle>備品一覧</CardTitle>
-          <CardDescription>登録されている備品: {items.length}件</CardDescription>
+          <CardDescription>
+            {searchQuery || statusFilter !== "all"
+              ? `検索結果: ${items.length}件`
+              : `登録されている備品: ${items.length}件`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -195,43 +351,53 @@ export default function Home() {
                 <TableHead>備品名</TableHead>
                 <TableHead>カテゴリ</TableHead>
                 <TableHead>ステータス</TableHead>
+                <TableHead>所有団</TableHead>
                 <TableHead>保管場所</TableHead>
                 <TableHead>備考</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.id}</TableCell>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.category}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        item.status === "保管中"
-                          ? "bg-green-100 text-green-800"
-                          : item.status === "貸出中"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{item.location}</TableCell>
-                  <TableCell>{item.note || "-"}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      削除
-                    </Button>
+              {items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    該当する備品が見つかりませんでした
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.id}</TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.category}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          item.status === "保管中"
+                            ? "default"
+                            : item.status === "貸出中"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                      >
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="w-32">{item.group?.name || "-"}</TableCell>
+                    <TableCell>{item.location}</TableCell>
+                    <TableCell>{item.note || "-"}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        削除
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
