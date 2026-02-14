@@ -10,10 +10,24 @@ Jumbory (ジャンボリー) の備品管理アプリ用リポジトリです。
 
 ## Backend
 
+### ローカル実行
+
 ```bash
 cd backend
 poetry install
 poetry run uvicorn main:app --reload
+```
+
+### Docker実行
+
+```bash
+# バックエンドのみ
+cd backend
+docker build -t jumbory-backend .
+docker run -p 8001:8001 jumbory-backend
+
+# または docker-compose を使用（推奨）
+docker-compose up
 ```
 
 `GET /` returns `{"message": "Hello Jumbory API"}`.

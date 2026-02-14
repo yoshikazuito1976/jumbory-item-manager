@@ -17,6 +17,10 @@ poetry.lock
 *.sqlite
 *.sqlite3
 
+# Environment
+.env
+.env.local
+
 # IDE
 .vscode/
 .idea/
