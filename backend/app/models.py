@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -24,6 +24,7 @@ class Leader(Base):
     gender = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    is_deleted = Column(Boolean, nullable=False, default=False)
     
     # リレーション
     group = relationship("Group")
@@ -41,6 +42,7 @@ class Scout(Base):
     rank = Column(String, nullable=True)  # 級（カブ、ボーイ等の進級）
     gender = Column(String, nullable=True)  # 性別
     patrol = Column(String, nullable=True)  # 班名
+    is_deleted = Column(Boolean, nullable=False, default=False)
     
     # リレーション
     group = relationship("Group")

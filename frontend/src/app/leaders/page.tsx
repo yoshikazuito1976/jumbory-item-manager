@@ -31,6 +31,7 @@ export default function LeadersPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Leader>>({});
   const [formData, setFormData] = useState<LeaderCreate>({
@@ -44,7 +45,10 @@ export default function LeadersPage() {
 
   const fetchLeaders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/leaders`);
+      const params = new URLSearchParams();
+      if (includeDeleted) params.append("include_deleted", "true");
+      const url = `${API_BASE_URL}/api/leaders${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url);
       const data = await response.json();
       setLeaders(data);
     } catch (error) {
@@ -65,7 +69,7 @@ export default function LeadersPage() {
   useEffect(() => {
     fetchLeaders();
     fetchGroups();
-  }, []);
+  }, [includeDeleted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +143,37 @@ export default function LeadersPage() {
       }
     } catch (error) {
       console.error("指導者の更新に失敗しました:", error);
+    }
+  };
+
+  const handleDelete = async (leaderId: number) => {
+    if (!confirm("本当に削除しますか？")) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/leaders/${leaderId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        fetchLeaders();
+      }
+    } catch (error) {
+      console.error("指導者の削除に失敗しました:", error);
+    }
+  };
+
+  const handleRestore = async (leaderId: number) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/leaders/${leaderId}/restore`,
+        {
+          method: "POST",
+        }
+      );
+      if (response.ok) {
+        fetchLeaders();
+      }
+    } catch (error) {
+      console.error("指導者の復元に失敗しました:", error);
     }
   };
 
@@ -256,6 +291,14 @@ export default function LeadersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={includeDeleted}
+                onChange={(e) => setIncludeDeleted(e.target.checked)}
+              />
+              削除済みを含める
+            </label>
           </div>
 
           <Table>
@@ -265,6 +308,10 @@ export default function LeadersPage() {
                 <TableHead>名前</TableHead>
                 <TableHead>所属団</TableHead>
                 <TableHead>役務</TableHead>
+                <TableHead>性別</TableHead>
+                <TableHead>電話</TableHead>
+                <TableHead>メール</TableHead>
+                <TableHead>状態</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -272,11 +319,49 @@ export default function LeadersPage() {
               {filteredLeaders.map((leader) => {
                 const group = groups.find((g) => g.id === leader.group_id);
                 const isEditing = editingId === leader.id;
+                const isDeleted = leader.is_deleted;
                 return (
                   <TableRow key={leader.id}>
                     <TableCell>{leader.id}</TableCell>
-                    <TableCell className="font-medium">{leader.name}</TableCell>
-                    <TableCell className="w-32">{group?.name || "-"}</TableCell>
+                    <TableCell className="font-medium">
+                      {isEditing ? (
+                        <Input
+                          value={editData.name || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, name: e.target.value })
+                          }
+                          className="w-32"
+                        />
+                      ) : (
+                        leader.name
+                      )}
+                    </TableCell>
+                    <TableCell className="w-32">
+                      {isEditing ? (
+                        <Select
+                          value={(editData.group_id ?? leader.group_id).toString()}
+                          onValueChange={(value) =>
+                            setEditData({
+                              ...editData,
+                              group_id: parseInt(value),
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="団を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {groups.map((g) => (
+                              <SelectItem key={g.id} value={g.id.toString()}>
+                                {g.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        group?.name || "-"
+                      )}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Input
@@ -289,6 +374,48 @@ export default function LeadersPage() {
                       ) : (
                         leader.role || "-"
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.gender || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, gender: e.target.value })
+                          }
+                          className="w-20"
+                        />
+                      ) : (
+                        leader.gender || "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.phone || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, phone: e.target.value })
+                          }
+                          className="w-40"
+                        />
+                      ) : (
+                        leader.phone || "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.email || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, email: e.target.value })
+                          }
+                          className="w-48"
+                        />
+                      ) : (
+                        leader.email || "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isDeleted ? "削除済み" : "有効"}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -308,9 +435,33 @@ export default function LeadersPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" onClick={() => handleEdit(leader)}>
-                          編集
-                        </Button>
+                        <div className="flex gap-2">
+                          {isDeleted ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRestore(leader.id)}
+                            >
+                              復元
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleEdit(leader)}
+                              >
+                                編集
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(leader.id)}
+                              >
+                                削除
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

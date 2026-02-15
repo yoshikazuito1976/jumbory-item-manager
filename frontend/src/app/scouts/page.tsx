@@ -33,6 +33,7 @@ export default function ScoutsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Scout>>({});
   const [formData, setFormData] = useState<ScoutCreate>({
@@ -67,7 +68,10 @@ export default function ScoutsPage() {
 
   const fetchScouts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/scouts`);
+      const params = new URLSearchParams();
+      if (includeDeleted) params.append("include_deleted", "true");
+      const url = `${API_BASE_URL}/api/scouts${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url);
       const data = await response.json();
       setScouts(data);
     } catch (error) {
@@ -88,7 +92,7 @@ export default function ScoutsPage() {
   useEffect(() => {
     fetchScouts();
     fetchGroups();
-  }, []);
+  }, [includeDeleted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +188,37 @@ export default function ScoutsPage() {
       }
     } catch (error) {
       console.error("スカウトの更新に失敗しました:", error);
+    }
+  };
+
+  const handleDelete = async (scoutId: number) => {
+    if (!confirm("本当に削除しますか？")) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scouts/${scoutId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        fetchScouts();
+      }
+    } catch (error) {
+      console.error("スカウトの削除に失敗しました:", error);
+    }
+  };
+
+  const handleRestore = async (scoutId: number) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/scouts/${scoutId}/restore`,
+        {
+          method: "POST",
+        }
+      );
+      if (response.ok) {
+        fetchScouts();
+      }
+    } catch (error) {
+      console.error("スカウトの復元に失敗しました:", error);
     }
   };
 
@@ -420,6 +455,14 @@ export default function ScoutsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={includeDeleted}
+                onChange={(e) => setIncludeDeleted(e.target.checked)}
+              />
+              削除済みを含める
+            </label>
           </div>
 
           <Table>
@@ -433,6 +476,7 @@ export default function ScoutsPage() {
                 <TableHead>級</TableHead>
                 <TableHead>性別</TableHead>
                 <TableHead>班名</TableHead>
+                <TableHead>状態</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -440,15 +484,101 @@ export default function ScoutsPage() {
               {filteredScouts.map((scout) => {
                 const group = groups.find((g) => g.id === scout.group_id);
                 const isEditing = editingId === scout.id;
+                const isDeleted = scout.is_deleted;
                 return (
                   <TableRow key={scout.id}>
                     <TableCell>{scout.id}</TableCell>
-                    <TableCell className="font-medium">{scout.name}</TableCell>
-                    <TableCell>{scout.name_kana}</TableCell>
-                    <TableCell>{group?.name || "-"}</TableCell>
-                    <TableCell>{scout.grade}</TableCell>
-                    <TableCell>{scout.rank}</TableCell>
-                    <TableCell>{scout.gender}</TableCell>
+                    <TableCell className="font-medium">
+                      {isEditing ? (
+                        <Input
+                          value={editData.name || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, name: e.target.value })
+                          }
+                          className="w-32"
+                        />
+                      ) : (
+                        scout.name
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.name_kana || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, name_kana: e.target.value })
+                          }
+                          className="w-32"
+                        />
+                      ) : (
+                        scout.name_kana
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Select
+                          value={(editData.group_id ?? scout.group_id).toString()}
+                          onValueChange={(value) =>
+                            setEditData({
+                              ...editData,
+                              group_id: parseInt(value),
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="団を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {groups.map((g) => (
+                              <SelectItem key={g.id} value={g.id.toString()}>
+                                {g.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        group?.name || "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.grade || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, grade: e.target.value })
+                          }
+                          className="w-20"
+                        />
+                      ) : (
+                        scout.grade
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.rank || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, rank: e.target.value })
+                          }
+                          className="w-20"
+                        />
+                      ) : (
+                        scout.rank
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editData.gender || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, gender: e.target.value })
+                          }
+                          className="w-16"
+                        />
+                      ) : (
+                        scout.gender
+                      )}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Input
@@ -461,6 +591,9 @@ export default function ScoutsPage() {
                       ) : (
                         scout.patrol
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {isDeleted ? "削除済み" : "有効"}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -480,9 +613,30 @@ export default function ScoutsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" onClick={() => handleEdit(scout)}>
-                          編集
-                        </Button>
+                        <div className="flex gap-2">
+                          {isDeleted ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRestore(scout.id)}
+                            >
+                              復元
+                            </Button>
+                          ) : (
+                            <>
+                              <Button size="sm" onClick={() => handleEdit(scout)}>
+                                編集
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(scout.id)}
+                              >
+                                削除
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

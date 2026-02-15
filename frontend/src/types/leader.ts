@@ -6,6 +6,7 @@ export interface Leader {
   gender: string | null;
   phone: string | null;
   email: string | null;
+  is_deleted: boolean;
 }
 
 export interface LeaderCreate {

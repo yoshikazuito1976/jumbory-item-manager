@@ -7,6 +7,7 @@ export interface Scout {
   rank: string;
   gender: string;
   patrol: string;
+  is_deleted: boolean;
 }
 
 export interface ScoutCreate {

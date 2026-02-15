@@ -287,9 +287,15 @@ def create_group(group: GroupCreate, db: Session = Depends(get_db)):
 
 # === Leader endpoints ===
 @app.get("/api/leaders", response_model=List[Leader])
-def get_leaders(db: Session = Depends(get_db)):
+def get_leaders(
+    include_deleted: bool = Query(False, description="削除済みも含める"),
+    db: Session = Depends(get_db),
+):
     """指導者一覧を取得"""
-    return db.query(LeaderModel).all()
+    query = db.query(LeaderModel)
+    if not include_deleted:
+        query = query.filter(LeaderModel.is_deleted == False)
+    return query.all()
 
 
 @app.post("/api/leaders", response_model=Leader, status_code=201)
@@ -305,7 +311,11 @@ def create_leader(leader: LeaderCreate, db: Session = Depends(get_db)):
 @app.put("/api/leaders/{leader_id}", response_model=Leader)
 def update_leader(leader_id: int, leader: LeaderUpdate, db: Session = Depends(get_db)):
     """指導者情報を更新"""
-    db_leader = db.query(LeaderModel).filter(LeaderModel.id == leader_id).first()
+    db_leader = (
+        db.query(LeaderModel)
+        .filter(LeaderModel.id == leader_id, LeaderModel.is_deleted == False)
+        .first()
+    )
     if not db_leader:
         raise HTTPException(status_code=404, detail="指導者が見つかりません")
     
@@ -319,11 +329,50 @@ def update_leader(leader_id: int, leader: LeaderUpdate, db: Session = Depends(ge
     return db_leader
 
 
+@app.delete("/api/leaders/{leader_id}")
+def delete_leader(leader_id: int, db: Session = Depends(get_db)):
+    """指導者を論理削除"""
+    db_leader = (
+        db.query(LeaderModel)
+        .filter(LeaderModel.id == leader_id, LeaderModel.is_deleted == False)
+        .first()
+    )
+    if not db_leader:
+        raise HTTPException(status_code=404, detail="指導者が見つかりません")
+
+    db_leader.is_deleted = True
+    db.commit()
+    return {"message": "指導者を削除しました"}
+
+
+@app.post("/api/leaders/{leader_id}/restore")
+def restore_leader(leader_id: int, db: Session = Depends(get_db)):
+    """指導者を復元"""
+    db_leader = (
+        db.query(LeaderModel)
+        .filter(LeaderModel.id == leader_id, LeaderModel.is_deleted == True)
+        .first()
+    )
+    if not db_leader:
+        raise HTTPException(status_code=404, detail="指導者が見つかりません")
+
+    db_leader.is_deleted = False
+    db.commit()
+    db.refresh(db_leader)
+    return db_leader
+
+
 # === Scout endpoints ===
 @app.get("/api/scouts", response_model=List[Scout])
-def get_scouts(db: Session = Depends(get_db)):
+def get_scouts(
+    include_deleted: bool = Query(False, description="削除済みも含める"),
+    db: Session = Depends(get_db),
+):
     """スカウト一覧を取得"""
-    return db.query(ScoutModel).all()
+    query = db.query(ScoutModel)
+    if not include_deleted:
+        query = query.filter(ScoutModel.is_deleted == False)
+    return query.all()
 
 
 @app.post("/api/scouts", response_model=Scout, status_code=201)
@@ -339,7 +388,11 @@ def create_scout(scout: ScoutCreate, db: Session = Depends(get_db)):
 @app.put("/api/scouts/{scout_id}", response_model=Scout)
 def update_scout(scout_id: int, scout: ScoutUpdate, db: Session = Depends(get_db)):
     """スカウト情報を更新"""
-    db_scout = db.query(ScoutModel).filter(ScoutModel.id == scout_id).first()
+    db_scout = (
+        db.query(ScoutModel)
+        .filter(ScoutModel.id == scout_id, ScoutModel.is_deleted == False)
+        .first()
+    )
     if not db_scout:
         raise HTTPException(status_code=404, detail="スカウトが見つかりません")
     
@@ -348,6 +401,39 @@ def update_scout(scout_id: int, scout: ScoutUpdate, db: Session = Depends(get_db
     for field, value in update_data.items():
         setattr(db_scout, field, value)
     
+    db.commit()
+    db.refresh(db_scout)
+    return db_scout
+
+
+@app.delete("/api/scouts/{scout_id}")
+def delete_scout(scout_id: int, db: Session = Depends(get_db)):
+    """スカウトを論理削除"""
+    db_scout = (
+        db.query(ScoutModel)
+        .filter(ScoutModel.id == scout_id, ScoutModel.is_deleted == False)
+        .first()
+    )
+    if not db_scout:
+        raise HTTPException(status_code=404, detail="スカウトが見つかりません")
+
+    db_scout.is_deleted = True
+    db.commit()
+    return {"message": "スカウトを削除しました"}
+
+
+@app.post("/api/scouts/{scout_id}/restore")
+def restore_scout(scout_id: int, db: Session = Depends(get_db)):
+    """スカウトを復元"""
+    db_scout = (
+        db.query(ScoutModel)
+        .filter(ScoutModel.id == scout_id, ScoutModel.is_deleted == True)
+        .first()
+    )
+    if not db_scout:
+        raise HTTPException(status_code=404, detail="スカウトが見つかりません")
+
+    db_scout.is_deleted = False
     db.commit()
     db.refresh(db_scout)
     return db_scout

@@ -44,6 +44,7 @@ class LeaderUpdate(BaseModel):
 
 class Leader(LeaderBase):
     id: int
+    is_deleted: bool
 
     class Config:
         from_attributes = True
@@ -76,6 +77,7 @@ class ScoutUpdate(BaseModel):
 
 class Scout(ScoutBase):
     id: int
+    is_deleted: bool
 
     class Config:
         from_attributes = True
