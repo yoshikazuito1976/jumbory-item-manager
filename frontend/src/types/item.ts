@@ -9,6 +9,8 @@ export interface Item {
   name: string;
   category: string;
   status: string;
+  quantity: number;
+  bring_to_jamboree: boolean;
   location: string;
   owner_group_id: number;
   approved_leader_id: number | null;
@@ -21,6 +23,8 @@ export interface ItemCreate {
   name: string;
   category: string;
   status: string;
+  quantity: number;
+  bring_to_jamboree: boolean;
   location: string;
   owner_group_id: number;
   note?: string;

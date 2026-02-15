@@ -88,6 +88,8 @@ class ItemBase(BaseModel):
     name: str
     category: str
     status: str
+    quantity: int = 1
+    bring_to_jamboree: bool = False
     location: str
     owner_group_id: int
     approved_leader_id: Optional[int] = None
@@ -103,6 +105,8 @@ class ItemUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     status: Optional[str] = None
+    quantity: Optional[int] = None
+    bring_to_jamboree: Optional[bool] = None
     location: Optional[str] = None
     owner_group_id: Optional[int] = None
     approved_leader_id: Optional[int] = None

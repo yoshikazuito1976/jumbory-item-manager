@@ -39,10 +39,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editData, setEditData] = useState<Partial<Item>>({});
   const [formData, setFormData] = useState<ItemCreate>({
     name: "",
     category: "",
     status: "保管中",
+    quantity: 1,
+    bring_to_jamboree: false,
     location: "",
     owner_group_id: 0,
     note: "",
@@ -98,6 +102,8 @@ export default function Home() {
           name: "",
           category: "",
           status: "保管中",
+          quantity: 1,
+          bring_to_jamboree: false,
           location: "",
           owner_group_id: 0,
           note: "",
@@ -107,6 +113,40 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Failed to create item:", error);
+    }
+  };
+
+  const handleEdit = (item: Item) => {
+    setEditingId(item.id);
+    setEditData({
+      status: item.status,
+      quantity: item.quantity,
+      bring_to_jamboree: item.bring_to_jamboree,
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+
+  const handleSaveEdit = async (itemId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editData),
+      });
+
+      if (response.ok) {
+        setEditingId(null);
+        setEditData({});
+        fetchItems();
+      }
+    } catch (error) {
+      console.error("Failed to update item:", error);
     }
   };
 
@@ -288,6 +328,39 @@ export default function Home() {
                 </select>
               </div>
               <div>
+                <Label htmlFor="quantity">数量</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min={1}
+                  value={formData.quantity}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      quantity: Number(e.target.value),
+                    })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="bring_to_jamboree">ジャンボリー持参</Label>
+                <select
+                  id="bring_to_jamboree"
+                  value={formData.bring_to_jamboree ? "yes" : "no"}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      bring_to_jamboree: e.target.value === "yes",
+                    })
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="no">持っていかない</option>
+                  <option value="yes">持っていく</option>
+                </select>
+              </div>
+              <div>
                 <Label htmlFor="location">保管場所</Label>
                 <Input
                   id="location"
@@ -352,6 +425,8 @@ export default function Home() {
                 <TableHead>備品名</TableHead>
                 <TableHead>カテゴリ</TableHead>
                 <TableHead>ステータス</TableHead>
+                <TableHead>数量</TableHead>
+                <TableHead>持参</TableHead>
                 <TableHead>所有団</TableHead>
                 <TableHead>保管場所</TableHead>
                 <TableHead>備考</TableHead>
@@ -361,7 +436,7 @@ export default function Home() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     該当する備品が見つかりませんでした
                   </TableCell>
                 </TableRow>
@@ -372,29 +447,113 @@ export default function Home() {
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.category}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          item.status === "保管中"
-                            ? "default"
-                            : item.status === "貸出中"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        {item.status}
-                      </Badge>
+                      {editingId === item.id ? (
+                        <select
+                          value={editData.status ?? item.status}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              status: e.target.value,
+                            })
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                          <option value="保管中">保管中</option>
+                          <option value="貸出中">貸出中</option>
+                          <option value="要メンテ">要メンテ</option>
+                        </select>
+                      ) : (
+                        <Badge
+                          variant={
+                            item.status === "保管中"
+                              ? "default"
+                              : item.status === "貸出中"
+                              ? "secondary"
+                              : "destructive"
+                          }
+                        >
+                          {item.status}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === item.id ? (
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editData.quantity ?? item.quantity}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              quantity: Number(e.target.value),
+                            })
+                          }
+                          className="w-20"
+                        />
+                      ) : (
+                        item.quantity
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === item.id ? (
+                        <select
+                          value={
+                            (editData.bring_to_jamboree ??
+                              item.bring_to_jamboree)
+                              ? "yes"
+                              : "no"
+                          }
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              bring_to_jamboree: e.target.value === "yes",
+                            })
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                          <option value="no">持っていかない</option>
+                          <option value="yes">持っていく</option>
+                        </select>
+                      ) : item.bring_to_jamboree ? (
+                        "持っていく"
+                      ) : (
+                        "持っていかない"
+                      )}
                     </TableCell>
                     <TableCell className="w-32">{item.group?.name || "-"}</TableCell>
                     <TableCell>{item.location}</TableCell>
                     <TableCell>{item.note || "-"}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        削除
-                      </Button>
+                      {editingId === item.id ? (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveEdit(item.id)}
+                          >
+                            保存
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                          >
+                            キャンセル
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleEdit(item)}>
+                            編集
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            削除
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
