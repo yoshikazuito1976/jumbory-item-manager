@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import csv
 import io
+import os
+import uvicorn
 
 from app.database import engine, get_db, Base
 from app.models import Item as ItemModel, Group as GroupModel, Leader as LeaderModel, Scout as ScoutModel
@@ -453,4 +455,9 @@ async def upload_items_csv(file: UploadFile = File(...), db: Session = Depends(g
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"CSVの処理中にエラーが発生しました: {str(e)}")
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
 
