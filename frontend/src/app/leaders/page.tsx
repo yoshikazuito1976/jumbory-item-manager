@@ -178,8 +178,8 @@ export default function LeadersPage() {
   };
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="mb-6 flex gap-4">
+    <div className="container mx-auto p-4 md:p-8">
+      <div className="mb-6 flex gap-4 flex-wrap text-sm">
         <Link href="/" className="text-blue-600 hover:underline">
           ← 備品管理に戻る
         </Link>
@@ -188,15 +188,15 @@ export default function LeadersPage() {
         </Link>
       </div>
 
-      <h1 className="text-3xl font-bold mb-6">指導者管理</h1>
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6">指導者管理</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>総指導者数</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.total}</p>
+            <p className="text-lg sm:text-3xl font-bold">{stats.total}</p>
           </CardContent>
         </Card>
         {Object.entries(stats.byGroup).map(([groupName, count]) => (
@@ -205,7 +205,7 @@ export default function LeadersPage() {
               <CardTitle>{groupName}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{count}名</p>
+              <p className="text-lg sm:text-3xl font-bold">{count}名</p>
             </CardContent>
           </Card>
         ))}

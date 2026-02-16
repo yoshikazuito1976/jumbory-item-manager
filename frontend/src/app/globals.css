@@ -125,4 +125,19 @@
     @apply bg-background text-foreground;
     @apply bg-background text-foreground;
   }
+  
+  /* スマホ用のテーブル行最小高さ（タップターゲット確保） */
+  @media (max-width: 640px) {
+    table tbody tr {
+      min-height: 44px;
+    }
+    table tbody td {
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+    /* テーブルのフォントサイズをスマホで少し小さく */
+    table {
+      font-size: 0.875rem;
+    }
+  }
 }
