@@ -76,3 +76,4 @@ GitHub リポジトリの Secrets に次を設定してください。
 - [コード説明書](docs/overview.md): 全体構成と技術スタック
 - [データの流れ](docs/data_flow.md): フロントエンドからバックエンド、DBまでのデータフロー（Mermaid シーケンス図）
 - [実装ログ](docs/implementation_log.md): 備品管理機能の実装内容と動作確認結果（2026/2/14）
+- [Lambda OIDC 作業ログ](docs/aws_lambda_oidc_deploy_log.md): AWS Lambda + GitHub Actions (OIDC) の運用者向け設定ログ（2026/2/21）
