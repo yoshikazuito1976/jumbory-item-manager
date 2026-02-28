@@ -2,6 +2,24 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+# Category schemas
+class CategoryBase(BaseModel):
+    name: str
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class Category(CategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # Group schemas
 class GroupBase(BaseModel):
     name: str

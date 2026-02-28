@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Item, ItemCreate, Group } from "@/types/item";
+import { Category, Item, ItemCreate, Group } from "@/types/item";
 import {
   Table,
   TableBody,
@@ -36,6 +36,7 @@ const API_BASE_URL =
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -56,6 +57,7 @@ export default function Home() {
   useEffect(() => {
     fetchItems();
     fetchGroups();
+    fetchCategories();
   }, [searchQuery, statusFilter]);
 
   const fetchItems = async () => {
@@ -85,8 +87,24 @@ export default function Home() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories`);
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.category) {
+      alert("カテゴリを選択してください");
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/items`, {
         method: "POST",
@@ -119,6 +137,7 @@ export default function Home() {
   const handleEdit = (item: Item) => {
     setEditingId(item.id);
     setEditData({
+      category: item.category,
       status: item.status,
       quantity: item.quantity,
       bring_to_jamboree: item.bring_to_jamboree,
@@ -302,14 +321,23 @@ export default function Home() {
               </div>
               <div>
                 <Label htmlFor="category">カテゴリ</Label>
-                <Input
-                  id="category"
+                <Select
                   value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
                   }
-                  required
-                />
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="カテゴリを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="status">ステータス</Label>
@@ -445,7 +473,32 @@ export default function Home() {
                   <TableRow key={item.id}>
                     <TableCell>{item.id}</TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.category}</TableCell>
+                    <TableCell>
+                      {editingId === item.id ? (
+                        <Select
+                          value={(editData.category as string) ?? item.category}
+                          onValueChange={(value) =>
+                            setEditData({
+                              ...editData,
+                              category: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="カテゴリを選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        item.category
+                      )}
+                    </TableCell>
                     <TableCell>
                       {editingId === item.id ? (
                         <select

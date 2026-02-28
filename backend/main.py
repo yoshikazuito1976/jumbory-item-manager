@@ -8,8 +8,15 @@ import os
 import uvicorn
 
 from app.database import engine, get_db, Base
-from app.models import Item as ItemModel, Group as GroupModel, Leader as LeaderModel, Scout as ScoutModel
+from app.models import (
+    Category as CategoryModel,
+    Item as ItemModel,
+    Group as GroupModel,
+    Leader as LeaderModel,
+    Scout as ScoutModel,
+)
 from app.schemas import (
+    Category, CategoryCreate,
     Item, ItemCreate, ItemUpdate,
     Group, GroupCreate,
     Leader, LeaderCreate, LeaderUpdate,
@@ -34,6 +41,18 @@ app.add_middleware(
 
 # データベーステーブルを作成
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_category(db: Session, category_name: str) -> None:
+    name = category_name.strip()
+    if not name:
+        return
+
+    exists = db.query(CategoryModel).filter(CategoryModel.name == name).first()
+    if exists:
+        return
+
+    db.add(CategoryModel(name=name, is_active=True))
 
 
 @app.on_event("startup")
@@ -81,6 +100,24 @@ def startup_event():
     db.add_all(scouts)
     db.commit()
     
+    # サンプルカテゴリを追加
+    default_categories = [
+        "テント",
+        "寝具",
+        "調理器具",
+        "照明器具",
+        "食品保管",
+        "家具",
+        "電源設備",
+        "医療・安全",
+        "通信機器",
+    ]
+    db.add_all([
+        CategoryModel(name=category_name, sort_order=index)
+        for index, category_name in enumerate(default_categories, start=1)
+    ])
+    db.commit()
+
     # サンプル備品データを10件追加
     sample_items = [
         ItemModel(
@@ -187,6 +224,31 @@ def read_root() -> dict[str, str]:
     return {"message": "Hello Jumbory API"}
 
 
+@app.get("/api/categories", response_model=List[Category])
+def get_categories(db: Session = Depends(get_db)):
+    """カテゴリ一覧を取得"""
+    return (
+        db.query(CategoryModel)
+        .filter(CategoryModel.is_active == True)
+        .order_by(CategoryModel.sort_order.asc(), CategoryModel.name.asc())
+        .all()
+    )
+
+
+@app.post("/api/categories", response_model=Category, status_code=201)
+def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
+    """新しいカテゴリを登録"""
+    existing = db.query(CategoryModel).filter(CategoryModel.name == category.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Category already exists")
+
+    db_category = CategoryModel(**category.model_dump())
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
+
+
 @app.get("/api/items", response_model=List[Item])
 def get_items(
     search: Optional[str] = Query(None, description="名前またはカテゴリで検索"),
@@ -224,6 +286,7 @@ def get_item(item_id: int, db: Session = Depends(get_db)):
 @app.post("/api/items", response_model=Item, status_code=201)
 def create_item(item: ItemCreate, db: Session = Depends(get_db)):
     """新しい備品を登録"""
+    ensure_category(db, item.category)
     db_item = ItemModel(**item.model_dump())
     db.add(db_item)
     db.commit()
@@ -238,8 +301,12 @@ def update_item(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)):
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")
     
+    update_data = item.model_dump(exclude_unset=True)
+    if "category" in update_data and update_data["category"]:
+        ensure_category(db, update_data["category"])
+
     # 更新されたフィールドのみを適用
-    for key, value in item.model_dump(exclude_unset=True).items():
+    for key, value in update_data.items():
         setattr(db_item, key, value)
     
     db.commit()
@@ -520,9 +587,12 @@ async def upload_items_csv(file: UploadFile = File(...), db: Session = Depends(g
                 owner_group_id = int(row.get('owner_group_id', ''))
                 
                 # 備品データを作成
+                category_name = row.get('category', '').strip()
+                ensure_category(db, category_name)
+
                 item = ItemModel(
                     name=row.get('name', '').strip(),
-                    category=row.get('category', '').strip(),
+                    category=category_name,
                     status=row.get('status', '保管中').strip(),
                     location=row.get('location', '').strip(),
                     owner_group_id=owner_group_id,

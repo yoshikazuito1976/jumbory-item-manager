@@ -4,6 +4,13 @@ export interface Group {
   description: string | null;
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export interface Item {
   id: number;
   name: string;
