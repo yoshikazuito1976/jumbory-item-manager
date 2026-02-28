@@ -224,6 +224,9 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Jumbory 備品管理</h1>
           <div className="flex gap-2 flex-wrap">
+            <Link href="/usage">
+              <Button variant="outline">使用方法</Button>
+            </Link>
             <Link href="/leaders">
               <Button variant="outline">指導者管理</Button>
             </Link>
