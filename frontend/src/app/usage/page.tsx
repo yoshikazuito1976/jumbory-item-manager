@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+const USAGE_GUIDE_URL =
+  "https://github.com/yoshikazuito1976/jumbory-item-manager/blob/main/docs/usage_guide.md";
+
 export default function UsagePage() {
   return (
     <div className="container mx-auto py-8 px-4 md:py-10">
@@ -47,7 +50,16 @@ export default function UsagePage() {
           <section>
             <h2 className="font-semibold mb-2">4. 補足</h2>
             <p>
-              詳細ドキュメントはリポジトリの <strong>docs/usage_guide.md</strong> を参照してください。
+              詳細ドキュメントは
+              <a
+                href={USAGE_GUIDE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline ml-1"
+              >
+                docs/usage_guide.md
+              </a>
+              を参照してください。
             </p>
           </section>
         </CardContent>
