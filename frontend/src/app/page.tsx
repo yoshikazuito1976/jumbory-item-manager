@@ -53,12 +53,14 @@ export default function Home() {
     note: "",
   });
 
-  // 初回ロード時に備品一覧と団一覧を取得
   useEffect(() => {
     fetchItems();
+  }, [searchQuery, statusFilter]);
+
+  useEffect(() => {
     fetchGroups();
     fetchCategories();
-  }, [searchQuery, statusFilter]);
+  }, []);
 
   const fetchItems = async () => {
     try {
@@ -68,10 +70,15 @@ export default function Home() {
 
       const url = `${API_BASE_URL}/api/items${params.toString() ? `?${params.toString()}` : ""}`;
       const response = await fetch(url);
+      if (!response.ok) {
+        setItems([]);
+        return;
+      }
       const data = await response.json();
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch items:", error);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -80,20 +87,30 @@ export default function Home() {
   const fetchGroups = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/groups`);
+      if (!response.ok) {
+        setGroups([]);
+        return;
+      }
       const data = await response.json();
-      setGroups(data);
+      setGroups(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch groups:", error);
+      setGroups([]);
     }
   };
 
   const fetchCategories = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/categories`);
+      if (!response.ok) {
+        setCategories([]);
+        return;
+      }
       const data = await response.json();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
+      setCategories([]);
     }
   };
 
