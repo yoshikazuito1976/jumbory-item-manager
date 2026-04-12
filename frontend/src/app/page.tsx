@@ -21,7 +21,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -525,7 +524,6 @@ export default function Home() {
                 <TableHead>ID</TableHead>
                 <TableHead>備品名</TableHead>
                 <TableHead>カテゴリ</TableHead>
-                <TableHead>ステータス</TableHead>
                 <TableHead>数量</TableHead>
                 <TableHead>持参</TableHead>
                 <TableHead>所有団</TableHead>
@@ -538,7 +536,7 @@ export default function Home() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     該当する備品が見つかりませんでした
                   </TableCell>
                 </TableRow>
@@ -571,36 +569,6 @@ export default function Home() {
                         </Select>
                       ) : (
                         item.category
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === item.id ? (
-                        <select
-                          value={editData.status ?? item.status}
-                          onChange={(e) =>
-                            setEditData({
-                              ...editData,
-                              status: e.target.value,
-                            })
-                          }
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                        >
-                          <option value="保管中">保管中</option>
-                          <option value="貸出中">貸出中</option>
-                          <option value="要メンテ">要メンテ</option>
-                        </select>
-                      ) : (
-                        <Badge
-                          variant={
-                            item.status === "保管中"
-                              ? "default"
-                              : item.status === "貸出中"
-                              ? "secondary"
-                              : "destructive"
-                          }
-                        >
-                          {item.status}
-                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
