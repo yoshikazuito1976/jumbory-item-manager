@@ -22,6 +22,7 @@ export interface Item {
   owner_group_id: number;
   approved_leader_id: number | null;
   responsible_scout_id: number | null;
+  image_url: string | null;
   note: string | null;
   group: Group;
 }

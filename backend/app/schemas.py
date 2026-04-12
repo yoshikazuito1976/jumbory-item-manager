@@ -134,6 +134,7 @@ class ItemUpdate(BaseModel):
 
 class Item(ItemBase):
     id: int
+    image_url: Optional[str] = None
     group: Group
     approved_leader: Optional[Leader] = None
     responsible_scout: Optional[Scout] = None

@@ -32,6 +32,8 @@ import {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
+const PHOTO_MAX_SIZE_MB = 1;
+const PHOTO_MAX_SIZE_BYTES = PHOTO_MAX_SIZE_MB * 1024 * 1024;
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
@@ -42,6 +44,8 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Item>>({});
+  const [newItemPhoto, setNewItemPhoto] = useState<File | null>(null);
+  const [rowPhotoFiles, setRowPhotoFiles] = useState<Record<number, File | null>>({});
   const [formData, setFormData] = useState<ItemCreate>({
     name: "",
     category: "",
@@ -132,6 +136,11 @@ export default function Home() {
       });
 
       if (response.ok) {
+        const createdItem = await response.json();
+        if (newItemPhoto) {
+          await uploadItemPhoto(createdItem.id, newItemPhoto);
+        }
+
         // フォームをリセット
         setFormData({
           name: "",
@@ -143,6 +152,7 @@ export default function Home() {
           owner_group_id: 0,
           note: "",
         });
+        setNewItemPhoto(null);
         // 一覧を再取得
         fetchItems();
       }
@@ -200,6 +210,37 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to delete item:", error);
     }
+  };
+
+  const getPhotoUrl = (path: string) => {
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return path;
+    }
+    return `${API_BASE_URL}${path}`;
+  };
+
+  const uploadItemPhoto = async (itemId: number, file: File) => {
+    if (file.size > PHOTO_MAX_SIZE_BYTES) {
+      alert(`画像サイズは${PHOTO_MAX_SIZE_MB}MB以下にしてください`);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE_URL}/api/items/${itemId}/photo`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => null);
+      alert(err?.detail ?? "画像アップロードに失敗しました");
+      return;
+    }
+
+    setRowPhotoFiles((prev) => ({ ...prev, [itemId]: null }));
+    fetchItems();
   };
 
   // 統計情報を計算
@@ -441,6 +482,18 @@ export default function Home() {
               </div>
             </div>
             <div>
+              <Label htmlFor="item_photo">備品写真（任意、{PHOTO_MAX_SIZE_MB}MBまで）</Label>
+              <Input
+                id="item_photo"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setNewItemPhoto(file);
+                }}
+              />
+            </div>
+            <div>
               <Label htmlFor="note">備考</Label>
               <Input
                 id="note"
@@ -477,6 +530,7 @@ export default function Home() {
                 <TableHead>持参</TableHead>
                 <TableHead>所有団</TableHead>
                 <TableHead>保管場所</TableHead>
+                <TableHead>写真</TableHead>
                 <TableHead>備考</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -484,7 +538,7 @@ export default function Home() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground">
                     該当する備品が見つかりませんでした
                   </TableCell>
                 </TableRow>
@@ -595,6 +649,41 @@ export default function Home() {
                     </TableCell>
                     <TableCell className="w-32">{item.group?.name || "-"}</TableCell>
                     <TableCell>{item.location}</TableCell>
+                    <TableCell>
+                      <div className="space-y-2 min-w-[180px]">
+                        {item.image_url ? (
+                          <img
+                            src={getPhotoUrl(item.image_url)}
+                            alt={`${item.name}の写真`}
+                            className="h-14 w-14 rounded-md object-cover border"
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">未登録</span>
+                        )}
+                        <Input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setRowPhotoFiles((prev) => ({ ...prev, [item.id]: file }));
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const file = rowPhotoFiles[item.id];
+                            if (!file) {
+                              alert("画像ファイルを選択してください");
+                              return;
+                            }
+                            uploadItemPhoto(item.id, file);
+                          }}
+                        >
+                          写真アップロード
+                        </Button>
+                      </div>
+                    </TableCell>
                     <TableCell>{item.note || "-"}</TableCell>
                     <TableCell>
                       {editingId === item.id ? (

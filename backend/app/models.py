@@ -71,6 +71,7 @@ class Item(Base):
     owner_group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)  # 所有団ID
     approved_leader_id = Column(Integer, ForeignKey("leaders.id"), nullable=True)  # 承認指導者ID
     responsible_scout_id = Column(Integer, ForeignKey("scouts.id"), nullable=True)  # 使用責任スカウトID
+    image_url = Column(String, nullable=True)
     note = Column(String, nullable=True)
     
     # リレーション

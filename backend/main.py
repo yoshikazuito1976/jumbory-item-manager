@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from supabase import create_client, Client
 from typing import List, Optional
 import csv
 import io
 import os
+import uuid
 import uvicorn
 
 from app.database import engine, get_db, Base
@@ -24,6 +26,22 @@ from app.schemas import (
 )
 
 app = FastAPI()
+
+PHOTO_MAX_SIZE_MB = int(os.getenv("ITEM_PHOTO_MAX_SIZE_MB", "1"))
+PHOTO_MAX_SIZE_BYTES = PHOTO_MAX_SIZE_MB * 1024 * 1024
+ALLOWED_IMAGE_MIME_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "item-photos")
+
+
+def _get_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 # CORS設定（フロントエンドからのアクセスを許可）
 allowed_origins = os.getenv(
@@ -53,6 +71,24 @@ def ensure_category(db: Session, category_name: str) -> None:
         return
 
     db.add(CategoryModel(name=name, is_active=True))
+
+
+def _delete_item_image_storage(image_url: Optional[str]) -> None:
+    """Supabase Storage から画像を削除する"""
+    if not image_url:
+        return
+
+    try:
+        supabase = _get_supabase()
+        # URLからストレージパスを抽出
+        marker = f"/storage/v1/object/public/{SUPABASE_STORAGE_BUCKET}/"
+        if marker not in image_url:
+            return
+        storage_path = image_url.split(marker, 1)[-1]
+        if storage_path:
+            supabase.storage.from_(SUPABASE_STORAGE_BUCKET).remove([storage_path])
+    except Exception:
+        pass  # 削除失敗は握りつぶす（ベストエフォート）
 
 
 @app.on_event("startup")
@@ -320,10 +356,75 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     db_item = db.query(ItemModel).filter(ItemModel.id == item_id).first()
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
+    _delete_item_image_storage(db_item.image_url)
+
     db.delete(db_item)
     db.commit()
     return None
+
+
+@app.post("/api/items/{item_id}/photo", response_model=Item)
+async def upload_item_photo(
+    item_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """備品画像をSupabase Storageにアップロード"""
+    db_item = db.query(ItemModel).filter(ItemModel.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if file.content_type not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPEG, PNG, and WEBP images are allowed",
+        )
+
+    chunks: list[bytes] = []
+    total_size = 0
+    try:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > PHOTO_MAX_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Image size must be <= {PHOTO_MAX_SIZE_MB}MB",
+                )
+            chunks.append(chunk)
+    finally:
+        await file.close()
+
+    image_bytes = b"".join(chunks)
+    ext = ALLOWED_IMAGE_MIME_TYPES[file.content_type]
+    storage_path = f"item_{item_id}_{uuid.uuid4().hex}{ext}"
+
+    try:
+        supabase = _get_supabase()
+        supabase.storage.from_(SUPABASE_STORAGE_BUCKET).upload(
+            storage_path,
+            image_bytes,
+            file_options={"content-type": file.content_type, "upsert": "true"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
+
+    public_url = (
+        supabase.storage.from_(SUPABASE_STORAGE_BUCKET).get_public_url(storage_path)
+    )
+
+    old_image_url = db_item.image_url
+    db_item.image_url = public_url
+    db.commit()
+    db.refresh(db_item)
+
+    if old_image_url and old_image_url != db_item.image_url:
+        _delete_item_image_storage(old_image_url)
+
+    return db_item
 
 
 # === Group endpoints ===
