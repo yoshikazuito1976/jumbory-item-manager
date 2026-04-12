@@ -635,7 +635,7 @@ export default function Home() {
                           {item.image_url && (
                             <button
                               type="button"
-                              className="w-fit"
+                              className="w-fit cursor-pointer"
                               onClick={() => openPhotoPreview(item)}
                             >
                               <img
@@ -672,7 +672,7 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={() => openPhotoPreview(item)}
-                          className="block"
+                          className="block cursor-pointer"
                         >
                           <img
                             src={getPhotoUrl(item.image_url)}
