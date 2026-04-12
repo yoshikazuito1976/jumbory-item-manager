@@ -45,6 +45,7 @@ export default function Home() {
   const [editData, setEditData] = useState<Partial<Item>>({});
   const [newItemPhoto, setNewItemPhoto] = useState<File | null>(null);
   const [rowPhotoFiles, setRowPhotoFiles] = useState<Record<number, File | null>>({});
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name: string } | null>(null);
   const [formData, setFormData] = useState<ItemCreate>({
     name: "",
     category: "",
@@ -216,6 +217,17 @@ export default function Home() {
       return path;
     }
     return `${API_BASE_URL}${path}`;
+  };
+
+  const openPhotoPreview = (item: Item) => {
+    if (!item.image_url) {
+      return;
+    }
+
+    setPreviewPhoto({
+      url: getPhotoUrl(item.image_url),
+      name: item.name,
+    });
   };
 
   const uploadItemPhoto = async (itemId: number, file: File) => {
@@ -621,11 +633,17 @@ export default function Home() {
                       {editingId === item.id ? (
                         <div className="space-y-2 min-w-[160px]">
                           {item.image_url && (
-                            <img
-                              src={getPhotoUrl(item.image_url)}
-                              alt={`${item.name}の写真`}
-                              className="h-14 w-14 rounded-md object-cover border"
-                            />
+                            <button
+                              type="button"
+                              className="w-fit"
+                              onClick={() => openPhotoPreview(item)}
+                            >
+                              <img
+                                src={getPhotoUrl(item.image_url)}
+                                alt={`${item.name}の写真`}
+                                className="h-14 w-14 rounded-md object-cover border transition-opacity hover:opacity-80"
+                              />
+                            </button>
                           )}
                           <Input
                             type="file"
@@ -651,11 +669,17 @@ export default function Home() {
                           </Button>
                         </div>
                       ) : item.image_url ? (
-                        <img
-                          src={getPhotoUrl(item.image_url)}
-                          alt={`${item.name}の写真`}
-                          className="h-14 w-14 rounded-md object-cover border"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => openPhotoPreview(item)}
+                          className="block"
+                        >
+                          <img
+                            src={getPhotoUrl(item.image_url)}
+                            alt={`${item.name}の写真`}
+                            className="h-14 w-14 rounded-md object-cover border transition-opacity hover:opacity-80"
+                          />
+                        </button>
                       ) : (
                         <span className="text-muted-foreground text-sm">未登録</span>
                       )}
@@ -700,6 +724,32 @@ export default function Home() {
           </Table>
         </CardContent>
       </Card>
+
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="relative w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              className="absolute right-3 top-3 z-10 bg-background/90"
+              onClick={() => setPreviewPhoto(null)}
+            >
+              閉じる
+            </Button>
+            <img
+              src={previewPhoto.url}
+              alt={`${previewPhoto.name}の拡大写真`}
+              className="max-h-[85vh] w-full rounded-lg object-contain bg-white"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
