@@ -650,39 +650,47 @@ export default function Home() {
                     <TableCell className="w-32">{item.group?.name || "-"}</TableCell>
                     <TableCell>{item.location}</TableCell>
                     <TableCell>
-                      <div className="space-y-2 min-w-[180px]">
-                        {item.image_url ? (
-                          <img
-                            src={getPhotoUrl(item.image_url)}
-                            alt={`${item.name}の写真`}
-                            className="h-14 w-14 rounded-md object-cover border"
+                      {editingId === item.id ? (
+                        <div className="space-y-2 min-w-[160px]">
+                          {item.image_url && (
+                            <img
+                              src={getPhotoUrl(item.image_url)}
+                              alt={`${item.name}の写真`}
+                              className="h-14 w-14 rounded-md object-cover border"
+                            />
+                          )}
+                          <Input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              setRowPhotoFiles((prev) => ({ ...prev, [item.id]: file }));
+                            }}
                           />
-                        ) : (
-                          <span className="text-muted-foreground text-sm">未登録</span>
-                        )}
-                        <Input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] ?? null;
-                            setRowPhotoFiles((prev) => ({ ...prev, [item.id]: file }));
-                          }}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const file = rowPhotoFiles[item.id];
+                              if (!file) {
+                                alert("画像ファイルを選択してください");
+                                return;
+                              }
+                              uploadItemPhoto(item.id, file);
+                            }}
+                          >
+                            写真アップロード
+                          </Button>
+                        </div>
+                      ) : item.image_url ? (
+                        <img
+                          src={getPhotoUrl(item.image_url)}
+                          alt={`${item.name}の写真`}
+                          className="h-14 w-14 rounded-md object-cover border"
                         />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const file = rowPhotoFiles[item.id];
-                            if (!file) {
-                              alert("画像ファイルを選択してください");
-                              return;
-                            }
-                            uploadItemPhoto(item.id, file);
-                          }}
-                        >
-                          写真アップロード
-                        </Button>
-                      </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">未登録</span>
+                      )}
                     </TableCell>
                     <TableCell>{item.note || "-"}</TableCell>
                     <TableCell>
