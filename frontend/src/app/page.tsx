@@ -97,9 +97,6 @@ export default function Home() {
             <Link href="/leaders">
               <Button variant="outline">指導者一覧</Button>
             </Link>
-            <Link href="/scouts">
-              <Button variant="outline">スカウト一覧</Button>
-            </Link>
             <Link href="/admin">
               <Button>管理者画面</Button>
             </Link>

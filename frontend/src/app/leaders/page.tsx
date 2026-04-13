@@ -74,9 +74,6 @@ export default function LeadersPage() {
         <Link href="/" className="text-blue-600 hover:underline">
           ← 備品一覧に戻る
         </Link>
-        <Link href="/scouts" className="text-blue-600 hover:underline">
-          スカウト一覧
-        </Link>
         <Link href="/admin/leaders">
           <Button size="sm">管理者画面</Button>
         </Link>
