@@ -37,6 +37,14 @@ class Group(GroupBase):
         from_attributes = True
 
 
+class AdminAuthRequest(BaseModel):
+    password: str
+
+
+class AdminAuthResponse(BaseModel):
+    authenticated: bool
+
+
 # Leader schemas
 class LeaderBase(BaseModel):
     name: str

@@ -11,6 +11,12 @@ Jumbory (ジャンボリー) の備品管理アプリ用リポジトリです。
 
 ## Backend
 
+更新系 API は管理者パスワードで保護されています。バックエンド起動前に環境変数 `ADMIN_PASSWORD` を設定してください。
+
+```bash
+export ADMIN_PASSWORD='your-admin-password'
+```
+
 ### ローカル実行
 
 ```bash
@@ -33,6 +39,13 @@ docker-compose up
 
 `GET /` returns `{"message": "Hello Jumbory API"}`.
 
+主な管理者向け API:
+
+- `POST /api/admin/auth`: 管理者パスワードの確認
+- `POST/PUT/DELETE /api/items*`: 備品の登録・更新・削除・画像更新
+- `POST/PUT/DELETE /api/leaders*`: 指導者の登録・更新・削除・復元
+- `POST/PUT/DELETE /api/scouts*`: スカウトの登録・更新・削除・復元・CSV取込
+
 ## Frontend
 
 ```bash
@@ -42,6 +55,8 @@ npm run dev
 ```
 
 Open http://localhost:3000 to see the Next.js starter screen.
+
+公開画面は閲覧専用です。編集や削除を行う場合は http://localhost:3000/admin から管理者画面に入り、管理者パスワードで認証してください。
 
 ## Lambda
 

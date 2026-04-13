@@ -1,16 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Category, Item, ItemCreate, Group } from "@/types/item";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Item } from "@/types/item";
 import {
   Card,
   CardContent,
@@ -20,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -28,189 +19,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
-const PHOTO_MAX_SIZE_MB = 1;
-const PHOTO_MAX_SIZE_BYTES = PHOTO_MAX_SIZE_MB * 1024 * 1024;
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { API_BASE_URL } from "@/lib/admin-auth";
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<Partial<Item>>({});
-  const [newItemPhoto, setNewItemPhoto] = useState<File | null>(null);
-  const [rowPhotoFiles, setRowPhotoFiles] = useState<Record<number, File | null>>({});
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; name: string } | null>(null);
-  const [formData, setFormData] = useState<ItemCreate>({
-    name: "",
-    category: "",
-    status: "保管中",
-    quantity: 1,
-    bring_to_jamboree: false,
-    location: "",
-    owner_group_id: 0,
-    note: "",
-  });
 
   useEffect(() => {
-    fetchItems();
-  }, [searchQuery, statusFilter]);
+    const fetchItems = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append("search", searchQuery);
+        if (statusFilter !== "all") params.append("status", statusFilter);
 
-  useEffect(() => {
-    fetchGroups();
-    fetchCategories();
-  }, []);
-
-  const fetchItems = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      if (statusFilter !== "all") params.append("status", statusFilter);
-
-      const url = `${API_BASE_URL}/api/items${params.toString() ? `?${params.toString()}` : ""}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        setItems([]);
-        return;
-      }
-      const data = await response.json();
-      setItems(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Failed to fetch items:", error);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchGroups = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/groups`);
-      if (!response.ok) {
-        setGroups([]);
-        return;
-      }
-      const data = await response.json();
-      setGroups(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Failed to fetch groups:", error);
-      setGroups([]);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/categories`);
-      if (!response.ok) {
-        setCategories([]);
-        return;
-      }
-      const data = await response.json();
-      setCategories(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Failed to fetch categories:", error);
-      setCategories([]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.category) {
-      alert("カテゴリを選択してください");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/items`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        const createdItem = await response.json();
-        if (newItemPhoto) {
-          await uploadItemPhoto(createdItem.id, newItemPhoto);
+        const url = `${API_BASE_URL}/api/items${params.toString() ? `?${params.toString()}` : ""}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          setItems([]);
+          return;
         }
 
-        // フォームをリセット
-        setFormData({
-          name: "",
-          category: "",
-          status: "保管中",
-          quantity: 1,
-          bring_to_jamboree: false,
-          location: "",
-          owner_group_id: 0,
-          note: "",
-        });
-        setNewItemPhoto(null);
-        // 一覧を再取得
-        fetchItems();
+        const data = await response.json();
+        setItems(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to fetch items:", error);
+        setItems([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to create item:", error);
-    }
-  };
+    };
 
-  const handleEdit = (item: Item) => {
-    setEditingId(item.id);
-    setEditData({
-      category: item.category,
-      status: item.status,
-      quantity: item.quantity,
-      bring_to_jamboree: item.bring_to_jamboree,
-    });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditData({});
-  };
-
-  const handleSaveEdit = async (itemId: number) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${itemId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(editData),
-      });
-
-      if (response.ok) {
-        setEditingId(null);
-        setEditData({});
-        fetchItems();
-      }
-    } catch (error) {
-      console.error("Failed to update item:", error);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("本当に削除しますか？")) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchItems();
-      }
-    } catch (error) {
-      console.error("Failed to delete item:", error);
-    }
-  };
+    fetchItems();
+  }, [searchQuery, statusFilter]);
 
   const getPhotoUrl = (path: string) => {
     if (path.startsWith("http://") || path.startsWith("https://")) {
@@ -219,42 +70,6 @@ export default function Home() {
     return `${API_BASE_URL}${path}`;
   };
 
-  const openPhotoPreview = (item: Item) => {
-    if (!item.image_url) {
-      return;
-    }
-
-    setPreviewPhoto({
-      url: getPhotoUrl(item.image_url),
-      name: item.name,
-    });
-  };
-
-  const uploadItemPhoto = async (itemId: number, file: File) => {
-    if (file.size > PHOTO_MAX_SIZE_BYTES) {
-      alert(`画像サイズは${PHOTO_MAX_SIZE_MB}MB以下にしてください`);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch(`${API_BASE_URL}/api/items/${itemId}/photo`, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => null);
-      alert(err?.detail ?? "画像アップロードに失敗しました");
-      return;
-    }
-
-    setRowPhotoFiles((prev) => ({ ...prev, [itemId]: null }));
-    fetchItems();
-  };
-
-  // 統計情報を計算
   const stats = {
     total: items.length,
     available: items.filter((item) => item.status === "保管中").length,
@@ -271,89 +86,104 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 md:py-10">
+    <div className="container mx-auto px-4 py-8 md:py-10">
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Jumbory 備品管理</h1>
-          <div className="flex gap-2 flex-wrap">
+        <div className="mb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold sm:text-3xl md:text-4xl">Jumbory 備品管理</h1>
+          <div className="flex flex-wrap gap-2">
             <Link href="/usage">
               <Button variant="outline">使用方法</Button>
             </Link>
             <Link href="/leaders">
-              <Button variant="outline">指導者管理</Button>
+              <Button variant="outline">指導者一覧</Button>
             </Link>
             <Link href="/scouts">
-              <Button variant="outline">スカウト管理</Button>
+              <Button variant="outline">スカウト一覧</Button>
+            </Link>
+            <Link href="/admin">
+              <Button>管理者画面</Button>
             </Link>
           </div>
         </div>
         <p className="text-muted-foreground">
-          備品の登録・管理・検索を一元管理できるダッシュボード
+          公開画面は閲覧専用です。編集と削除は管理者画面から行ってください。
         </p>
       </div>
 
-      {/* 統計情報ダッシュボード */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
+      <Card className="mb-8 border-blue-200 bg-blue-50/60">
+        <CardHeader>
+          <CardTitle>管理者向け</CardTitle>
+          <CardDescription>
+            変更作業はパスワード認証後の管理者画面でのみ可能です。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/admin/items">
+            <Button>備品の管理を開く</Button>
+          </Link>
+        </CardContent>
+      </Card>
+
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
               総備品数
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-3xl font-bold">{stats.total}</div>
+            <div className="text-lg font-bold sm:text-3xl">{stats.total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
               保管中
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-3xl font-bold text-green-600">
+            <div className="text-lg font-bold text-green-600 sm:text-3xl">
               {stats.available}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
               貸出中
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-3xl font-bold text-blue-600">
+            <div className="text-lg font-bold text-blue-600 sm:text-3xl">
               {stats.borrowed}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
               要メンテ
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-3xl font-bold text-red-600">
+            <div className="text-lg font-bold text-red-600 sm:text-3xl">
               {stats.maintenance}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 検索・フィルタ */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>検索・フィルタ</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="flex-1 min-w-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <div className="min-w-0 flex-1">
               <Input
                 placeholder="備品名またはカテゴリで検索..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -371,155 +201,6 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      {/* 新規登録フォーム */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>新しい備品を登録</CardTitle>
-          <CardDescription>備品情報を入力して登録してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">備品名</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">カテゴリ</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="カテゴリを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="status">ステータス</Label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="保管中">保管中</option>
-                  <option value="貸出中">貸出中</option>
-                  <option value="要メンテ">要メンテ</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="quantity">数量</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min={1}
-                  value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      quantity: Number(e.target.value),
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="bring_to_jamboree">ジャンボリー持参</Label>
-                <select
-                  id="bring_to_jamboree"
-                  value={formData.bring_to_jamboree ? "yes" : "no"}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      bring_to_jamboree: e.target.value === "yes",
-                    })
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="no">持っていかない</option>
-                  <option value="yes">持っていく</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="location">保管場所</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="owner_group_id">所有団</Label>
-                <Select
-                  value={formData.owner_group_id.toString()}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, owner_group_id: parseInt(value) })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="団を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id.toString()}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="item_photo">備品写真（任意、{PHOTO_MAX_SIZE_MB}MBまで）</Label>
-              <Input
-                id="item_photo"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  setNewItemPhoto(file);
-                }}
-              />
-            </div>
-            <div>
-              <Label htmlFor="note">備考</Label>
-              <Input
-                id="note"
-                value={formData.note}
-                onChange={(e) =>
-                  setFormData({ ...formData, note: e.target.value })
-                }
-              />
-            </div>
-            <Button type="submit">登録</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* 備品一覧 */}
       <Card>
         <CardHeader>
           <CardTitle>備品一覧</CardTitle>
@@ -536,13 +217,13 @@ export default function Home() {
                 <TableHead>ID</TableHead>
                 <TableHead>備品名</TableHead>
                 <TableHead>カテゴリ</TableHead>
+                <TableHead>状態</TableHead>
                 <TableHead>数量</TableHead>
                 <TableHead>持参</TableHead>
                 <TableHead>所有団</TableHead>
                 <TableHead>保管場所</TableHead>
                 <TableHead>写真</TableHead>
                 <TableHead>備考</TableHead>
-                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -557,166 +238,35 @@ export default function Home() {
                   <TableRow key={item.id}>
                     <TableCell>{item.id}</TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      {editingId === item.id ? (
-                        <Select
-                          value={(editData.category as string) ?? item.category}
-                          onValueChange={(value) =>
-                            setEditData({
-                              ...editData,
-                              category: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="カテゴリを選択" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.name}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        item.category
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === item.id ? (
-                        <Input
-                          type="number"
-                          min={1}
-                          value={editData.quantity ?? item.quantity}
-                          onChange={(e) =>
-                            setEditData({
-                              ...editData,
-                              quantity: Number(e.target.value),
-                            })
-                          }
-                          className="w-20"
-                        />
-                      ) : (
-                        item.quantity
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingId === item.id ? (
-                        <select
-                          value={
-                            (editData.bring_to_jamboree ??
-                              item.bring_to_jamboree)
-                              ? "yes"
-                              : "no"
-                          }
-                          onChange={(e) =>
-                            setEditData({
-                              ...editData,
-                              bring_to_jamboree: e.target.value === "yes",
-                            })
-                          }
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                        >
-                          <option value="no">持っていかない</option>
-                          <option value="yes">持っていく</option>
-                        </select>
-                      ) : item.bring_to_jamboree ? (
-                        "持っていく"
-                      ) : (
-                        "持っていかない"
-                      )}
-                    </TableCell>
-                    <TableCell className="w-32">{item.group?.name || "-"}</TableCell>
+                    <TableCell>{item.category}</TableCell>
+                    <TableCell>{item.status}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>{item.bring_to_jamboree ? "持っていく" : "持っていかない"}</TableCell>
+                    <TableCell>{item.group?.name || "-"}</TableCell>
                     <TableCell>{item.location}</TableCell>
                     <TableCell>
-                      {editingId === item.id ? (
-                        <div className="space-y-2 min-w-[160px]">
-                          {item.image_url && (
-                            <button
-                              type="button"
-                              className="w-fit cursor-pointer"
-                              onClick={() => openPhotoPreview(item)}
-                            >
-                              <img
-                                src={getPhotoUrl(item.image_url)}
-                                alt={`${item.name}の写真`}
-                                className="h-14 w-14 rounded-md object-cover border transition-opacity hover:opacity-80"
-                              />
-                            </button>
-                          )}
-                          <Input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] ?? null;
-                              setRowPhotoFiles((prev) => ({ ...prev, [item.id]: file }));
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const file = rowPhotoFiles[item.id];
-                              if (!file) {
-                                alert("画像ファイルを選択してください");
-                                return;
-                              }
-                              uploadItemPhoto(item.id, file);
-                            }}
-                          >
-                            写真アップロード
-                          </Button>
-                        </div>
-                      ) : item.image_url ? (
+                      {item.image_url ? (
                         <button
                           type="button"
-                          onClick={() => openPhotoPreview(item)}
+                          onClick={() =>
+                            setPreviewPhoto({
+                              url: getPhotoUrl(item.image_url as string),
+                              name: item.name,
+                            })
+                          }
                           className="block cursor-pointer"
                         >
                           <img
                             src={getPhotoUrl(item.image_url)}
                             alt={`${item.name}の写真`}
-                            className="h-14 w-14 rounded-md object-cover border transition-opacity hover:opacity-80"
+                            className="h-14 w-14 rounded-md border object-cover transition-opacity hover:opacity-80"
                           />
                         </button>
                       ) : (
-                        <span className="text-muted-foreground text-sm">未登録</span>
+                        <span className="text-sm text-muted-foreground">未登録</span>
                       )}
                     </TableCell>
                     <TableCell>{item.note || "-"}</TableCell>
-                    <TableCell>
-                      {editingId === item.id ? (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveEdit(item.id)}
-                          >
-                            保存
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEdit}
-                          >
-                            キャンセル
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleEdit(item)}>
-                            編集
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -725,15 +275,12 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      {previewPhoto && (
+      {previewPhoto ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6"
           onClick={() => setPreviewPhoto(null)}
         >
-          <div
-            className="relative w-full max-w-4xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative w-full max-w-4xl" onClick={(event) => event.stopPropagation()}>
             <Button
               type="button"
               variant="outline"
@@ -745,11 +292,11 @@ export default function Home() {
             <img
               src={previewPhoto.url}
               alt={`${previewPhoto.name}の拡大写真`}
-              className="max-h-[85vh] w-full rounded-lg object-contain bg-white"
+              className="max-h-[85vh] w-full rounded-lg bg-white object-contain"
             />
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

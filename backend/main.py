@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from supabase import create_client, Client
@@ -18,6 +18,7 @@ from app.models import (
     Scout as ScoutModel,
 )
 from app.schemas import (
+    AdminAuthRequest, AdminAuthResponse,
     Category, CategoryCreate,
     Item, ItemCreate, ItemUpdate,
     Group, GroupCreate,
@@ -38,10 +39,28 @@ ALLOWED_IMAGE_MIME_TYPES = {
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "item-photos")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 
 def _get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+
+def _validate_admin_password(password: Optional[str]) -> None:
+    if not ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=503,
+            detail="管理者パスワードが設定されていません",
+        )
+
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="管理者認証に失敗しました")
+
+
+def require_admin_access(
+    x_admin_password: Optional[str] = Header(None, alias="X-Admin-Password"),
+) -> None:
+    _validate_admin_password(x_admin_password)
 
 # CORS設定（フロントエンドからのアクセスを許可）
 allowed_origins = os.getenv(
@@ -260,6 +279,12 @@ def read_root() -> dict[str, str]:
     return {"message": "Hello Jumbory API"}
 
 
+@app.post("/api/admin/auth", response_model=AdminAuthResponse)
+def authenticate_admin(auth_request: AdminAuthRequest):
+    _validate_admin_password(auth_request.password)
+    return AdminAuthResponse(authenticated=True)
+
+
 @app.get("/api/categories", response_model=List[Category])
 def get_categories(db: Session = Depends(get_db)):
     """カテゴリ一覧を取得"""
@@ -272,7 +297,11 @@ def get_categories(db: Session = Depends(get_db)):
 
 
 @app.post("/api/categories", response_model=Category, status_code=201)
-def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
+def create_category(
+    category: CategoryCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """新しいカテゴリを登録"""
     existing = db.query(CategoryModel).filter(CategoryModel.name == category.name).first()
     if existing:
@@ -320,7 +349,11 @@ def get_item(item_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/items", response_model=Item, status_code=201)
-def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+def create_item(
+    item: ItemCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """新しい備品を登録"""
     ensure_category(db, item.category)
     db_item = ItemModel(**item.model_dump())
@@ -331,7 +364,12 @@ def create_item(item: ItemCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/api/items/{item_id}", response_model=Item)
-def update_item(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)):
+def update_item(
+    item_id: int,
+    item: ItemUpdate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """備品を更新"""
     db_item = db.query(ItemModel).filter(ItemModel.id == item_id).first()
     if db_item is None:
@@ -351,7 +389,11 @@ def update_item(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)):
 
 
 @app.delete("/api/items/{item_id}", status_code=204)
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+def delete_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """備品を削除"""
     db_item = db.query(ItemModel).filter(ItemModel.id == item_id).first()
     if db_item is None:
@@ -369,6 +411,7 @@ async def upload_item_photo(
     item_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
 ):
     """備品画像をSupabase Storageにアップロード"""
     db_item = db.query(ItemModel).filter(ItemModel.id == item_id).first()
@@ -444,7 +487,11 @@ def get_group(group_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/groups", response_model=Group, status_code=201)
-def create_group(group: GroupCreate, db: Session = Depends(get_db)):
+def create_group(
+    group: GroupCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """新しい団を登録"""
     db_group = GroupModel(**group.model_dump())
     db.add(db_group)
@@ -467,7 +514,11 @@ def get_leaders(
 
 
 @app.post("/api/leaders", response_model=Leader, status_code=201)
-def create_leader(leader: LeaderCreate, db: Session = Depends(get_db)):
+def create_leader(
+    leader: LeaderCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """新しい指導者を登録"""
     db_leader = LeaderModel(**leader.model_dump())
     db.add(db_leader)
@@ -477,7 +528,12 @@ def create_leader(leader: LeaderCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/api/leaders/{leader_id}", response_model=Leader)
-def update_leader(leader_id: int, leader: LeaderUpdate, db: Session = Depends(get_db)):
+def update_leader(
+    leader_id: int,
+    leader: LeaderUpdate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """指導者情報を更新"""
     db_leader = (
         db.query(LeaderModel)
@@ -498,7 +554,11 @@ def update_leader(leader_id: int, leader: LeaderUpdate, db: Session = Depends(ge
 
 
 @app.delete("/api/leaders/{leader_id}")
-def delete_leader(leader_id: int, db: Session = Depends(get_db)):
+def delete_leader(
+    leader_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """指導者を論理削除"""
     db_leader = (
         db.query(LeaderModel)
@@ -514,7 +574,11 @@ def delete_leader(leader_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/leaders/{leader_id}/restore")
-def restore_leader(leader_id: int, db: Session = Depends(get_db)):
+def restore_leader(
+    leader_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """指導者を復元"""
     db_leader = (
         db.query(LeaderModel)
@@ -544,7 +608,11 @@ def get_scouts(
 
 
 @app.post("/api/scouts", response_model=Scout, status_code=201)
-def create_scout(scout: ScoutCreate, db: Session = Depends(get_db)):
+def create_scout(
+    scout: ScoutCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """新しいスカウトを登録"""
     db_scout = ScoutModel(**scout.model_dump())
     db.add(db_scout)
@@ -554,7 +622,12 @@ def create_scout(scout: ScoutCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/api/scouts/{scout_id}", response_model=Scout)
-def update_scout(scout_id: int, scout: ScoutUpdate, db: Session = Depends(get_db)):
+def update_scout(
+    scout_id: int,
+    scout: ScoutUpdate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """スカウト情報を更新"""
     db_scout = (
         db.query(ScoutModel)
@@ -575,7 +648,11 @@ def update_scout(scout_id: int, scout: ScoutUpdate, db: Session = Depends(get_db
 
 
 @app.delete("/api/scouts/{scout_id}")
-def delete_scout(scout_id: int, db: Session = Depends(get_db)):
+def delete_scout(
+    scout_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """スカウトを論理削除"""
     db_scout = (
         db.query(ScoutModel)
@@ -591,7 +668,11 @@ def delete_scout(scout_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/scouts/{scout_id}/restore")
-def restore_scout(scout_id: int, db: Session = Depends(get_db)):
+def restore_scout(
+    scout_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """スカウトを復元"""
     db_scout = (
         db.query(ScoutModel)
@@ -608,7 +689,11 @@ def restore_scout(scout_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/scouts/upload-csv", status_code=201)
-async def upload_scouts_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_scouts_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """CSVファイルからスカウトデータを一括登録
     
     CSV形式:
@@ -663,7 +748,11 @@ async def upload_scouts_csv(file: UploadFile = File(...), db: Session = Depends(
 
 
 @app.post("/api/items/upload-csv", status_code=201)
-async def upload_items_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_items_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_access),
+):
     """CSVファイルから備品データを一括登録
     
     CSV形式:

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Leader, LeaderCreate, Group } from "@/types/leader";
+import { Leader, Group } from "@/types/leader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -22,85 +21,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
+import { API_BASE_URL } from "@/lib/admin-auth";
 
 export default function LeadersPage() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
-  const [includeDeleted, setIncludeDeleted] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<Partial<Leader>>({});
-  const [formData, setFormData] = useState<LeaderCreate>({
-    name: "",
-    group_id: 0,
-    role: "",
-    gender: "",
-    phone: "",
-    email: "",
-  });
-
-  const fetchLeaders = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (includeDeleted) params.append("include_deleted", "true");
-      const url = `${API_BASE_URL}/api/leaders${params.toString() ? `?${params.toString()}` : ""}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setLeaders(data);
-    } catch (error) {
-      console.error("指導者の取得に失敗しました:", error);
-    }
-  };
-
-  const fetchGroups = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/groups`);
-      const data = await response.json();
-      setGroups(data);
-    } catch (error) {
-      console.error("団の取得に失敗しました:", error);
-    }
-  };
 
   useEffect(() => {
-    fetchLeaders();
-    fetchGroups();
-  }, [includeDeleted]);
+    const fetchData = async () => {
+      try {
+        const [leadersResponse, groupsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/leaders`),
+          fetch(`${API_BASE_URL}/api/groups`),
+        ]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/leaders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-      if (response.ok) {
-        setFormData({
-          name: "",
-          group_id: 0,
-          role: "",
-          gender: "",
-          phone: "",
-          email: "",
-        });
-        fetchLeaders();
+        const leadersData = leadersResponse.ok ? await leadersResponse.json() : [];
+        const groupsData = groupsResponse.ok ? await groupsResponse.json() : [];
+
+        setLeaders(Array.isArray(leadersData) ? leadersData : []);
+        setGroups(Array.isArray(groupsData) ? groupsData : []);
+      } catch (error) {
+        console.error("指導者データの取得に失敗しました:", error);
       }
-    } catch (error) {
-      console.error("指導者の登録に失敗しました:", error);
-    }
-  };
+    };
+
+    fetchData();
+  }, []);
 
   const filteredLeaders = leaders.filter((leader) => {
-    const matchesSearch = leader.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+    const matchesSearch = leader.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGroup =
       groupFilter === "all" || leader.group_id === parseInt(groupFilter);
     return matchesSearch && matchesGroup;
@@ -117,86 +68,29 @@ export default function LeadersPage() {
     }, {} as Record<string, number>),
   };
 
-  const handleEdit = (leader: Leader) => {
-    setEditingId(leader.id);
-    setEditData(leader);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditData({});
-  };
-
-  const handleSaveEdit = async (leaderId: number) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/leaders/${leaderId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(editData),
-      });
-      if (response.ok) {
-        setEditingId(null);
-        setEditData({});
-        fetchLeaders();
-      }
-    } catch (error) {
-      console.error("指導者の更新に失敗しました:", error);
-    }
-  };
-
-  const handleDelete = async (leaderId: number) => {
-    if (!confirm("本当に削除しますか？")) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/leaders/${leaderId}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        fetchLeaders();
-      }
-    } catch (error) {
-      console.error("指導者の削除に失敗しました:", error);
-    }
-  };
-
-  const handleRestore = async (leaderId: number) => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/leaders/${leaderId}/restore`,
-        {
-          method: "POST",
-        }
-      );
-      if (response.ok) {
-        fetchLeaders();
-      }
-    } catch (error) {
-      console.error("指導者の復元に失敗しました:", error);
-    }
-  };
-
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <div className="mb-6 flex gap-4 flex-wrap text-sm">
+      <div className="mb-6 flex flex-wrap gap-4 text-sm">
         <Link href="/" className="text-blue-600 hover:underline">
-          ← 備品管理に戻る
+          ← 備品一覧に戻る
         </Link>
         <Link href="/scouts" className="text-blue-600 hover:underline">
-          スカウト管理
+          スカウト一覧
+        </Link>
+        <Link href="/admin/leaders">
+          <Button size="sm">管理者画面</Button>
         </Link>
       </div>
 
-      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6">指導者管理</h1>
+      <h1 className="mb-6 text-xl font-bold sm:text-2xl md:text-3xl">指導者一覧</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>総指導者数</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg sm:text-3xl font-bold">{stats.total}</p>
+            <p className="text-lg font-bold sm:text-3xl">{stats.total}</p>
           </CardContent>
         </Card>
         {Object.entries(stats.byGroup).map(([groupName, count]) => (
@@ -205,77 +99,22 @@ export default function LeadersPage() {
               <CardTitle>{groupName}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-lg sm:text-3xl font-bold">{count}名</p>
+              <p className="text-lg font-bold sm:text-3xl">{count}名</p>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>新規指導者登録</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">名前</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="group_id">所属団</Label>
-                <Select
-                  value={formData.group_id.toString()}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, group_id: parseInt(value) })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="団を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id.toString()}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="role">役務</Label>
-                <Input
-                  id="role"
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value })
-                  }
-                  placeholder="例: 団委員長, 隊長, 副長"
-                />
-              </div>
-            </div>
-            <Button type="submit">登録</Button>
-          </form>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>指導者一覧</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-4">
+          <div className="mb-4 flex flex-wrap gap-4">
             <Input
               placeholder="名前で検索..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="max-w-sm"
             />
             <Select value={groupFilter} onValueChange={setGroupFilter}>
@@ -291,14 +130,6 @@ export default function LeadersPage() {
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={includeDeleted}
-                onChange={(e) => setIncludeDeleted(e.target.checked)}
-              />
-              削除済みを含める
-            </label>
           </div>
 
           <Table>
@@ -311,170 +142,29 @@ export default function LeadersPage() {
                 <TableHead>性別</TableHead>
                 <TableHead>電話</TableHead>
                 <TableHead>メール</TableHead>
-                <TableHead>状態</TableHead>
-                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredLeaders.map((leader) => {
                 const group = groups.find((g) => g.id === leader.group_id);
-                const isEditing = editingId === leader.id;
-                const isDeleted = leader.is_deleted;
                 return (
                   <TableRow key={leader.id}>
                     <TableCell>{leader.id}</TableCell>
-                    <TableCell className="font-medium">
-                      {isEditing ? (
-                        <Input
-                          value={editData.name || ""}
-                          onChange={(e) =>
-                            setEditData({ ...editData, name: e.target.value })
-                          }
-                          className="w-32"
-                        />
-                      ) : (
-                        leader.name
-                      )}
-                    </TableCell>
-                    <TableCell className="w-32">
-                      {isEditing ? (
-                        <Select
-                          value={(editData.group_id ?? leader.group_id).toString()}
-                          onValueChange={(value) =>
-                            setEditData({
-                              ...editData,
-                              group_id: parseInt(value),
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue placeholder="団を選択" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {groups.map((g) => (
-                              <SelectItem key={g.id} value={g.id.toString()}>
-                                {g.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        group?.name || "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editData.role || ""}
-                          onChange={(e) =>
-                            setEditData({ ...editData, role: e.target.value })
-                          }
-                          className="w-32"
-                        />
-                      ) : (
-                        leader.role || "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editData.gender || ""}
-                          onChange={(e) =>
-                            setEditData({ ...editData, gender: e.target.value })
-                          }
-                          className="w-20"
-                        />
-                      ) : (
-                        leader.gender || "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editData.phone || ""}
-                          onChange={(e) =>
-                            setEditData({ ...editData, phone: e.target.value })
-                          }
-                          className="w-40"
-                        />
-                      ) : (
-                        leader.phone || "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={editData.email || ""}
-                          onChange={(e) =>
-                            setEditData({ ...editData, email: e.target.value })
-                          }
-                          className="w-48"
-                        />
-                      ) : (
-                        leader.email || "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isDeleted ? "削除済み" : "有効"}
-                    </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveEdit(leader.id)}
-                          >
-                            保存
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEdit}
-                          >
-                            キャンセル
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          {isDeleted ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRestore(leader.id)}
-                            >
-                              復元
-                            </Button>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => handleEdit(leader)}
-                              >
-                                編集
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDelete(leader.id)}
-                              >
-                                削除
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
+                    <TableCell className="font-medium">{leader.name}</TableCell>
+                    <TableCell>{group?.name || "-"}</TableCell>
+                    <TableCell>{leader.role || "-"}</TableCell>
+                    <TableCell>{leader.gender || "-"}</TableCell>
+                    <TableCell>{leader.phone || "-"}</TableCell>
+                    <TableCell>{leader.email || "-"}</TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
 
-          {filteredLeaders.length === 0 && (
-            <p className="text-center text-gray-500 py-8">
-              指導者が見つかりませんでした
-            </p>
-          )}
+          {filteredLeaders.length === 0 ? (
+            <p className="py-8 text-center text-gray-500">指導者が見つかりませんでした</p>
+          ) : null}
         </CardContent>
       </Card>
     </div>
